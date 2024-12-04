@@ -1,0 +1,36 @@
+---
+- hosts: all
+  become: true
+  vars_files: 
+    - vars.yml 
+  
+  pre_tasks: 
+    - name: apt cache 
+      apt: update_cache=true cache_valid_time=3600
+
+  tasks: 
+    - name: install java
+      apt: name=openjdk-11-jdk state=present
+    - name: download solr
+      get_url:
+        url: "https://archive.apache.org/dist/lucene/solr/{{ solr_version }}/solr-{{ solr_version }}.tgz"
+        dest: "{{ download_dir }}/solr-{{ solr_version }}.tgz"
+        checksum: "{{ solr_checksum }}"
+    - name: expand solr
+      unarchive: 
+        src: "{{ download_dir }}/solr-{{solr_version }}.tgz"
+        dest: "{{ download_dir }}"
+        remote_src: true 
+        creates: "{{ download_dir }}/solr-{{ solr_version }}/README.txt"
+    - name: run solr installation script
+      command: >
+        {{ download_dir }}/solr-{{ solr_version }}/bin/install_solr_service.sh
+        {{ download_dir }}/solr-{{ solr_version }}.tgz
+        -i /opt
+        -d /var/solr
+        -u solr
+        -s solr
+        -p 8983
+        creates={{ solr_dir }}/bin/solr
+    - name: start svc
+      service: name=solr state=started enabled=yes
